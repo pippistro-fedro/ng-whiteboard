@@ -1,11 +1,20 @@
 import { signal, Injectable } from '@angular/core';
 import { WhiteboardElement } from '../types';
 
+/** Pan/zoom viewport snapshot recorded in history (fork-only, DCN). */
+export interface Viewport {
+  zoom: number;
+  x: number;
+  y: number;
+}
+
 interface HistoryEntry {
   before: WhiteboardElement[];
   after: WhiteboardElement[];
   description: string;
   timestamp: number;
+  /** Present only on viewport (pan/zoom) entries; absent on element entries. Fork-only (DCN). */
+  viewport?: { before: Viewport; after: Viewport };
 }
 
 export interface BatchHandle {
@@ -72,6 +81,25 @@ export class HistoryService {
     this.recordChange(before, after, 'Clear whiteboard');
   }
 
+  /**
+   * Record a viewport (pan/zoom) change as a first-class, linear undo entry, so undo/redo step
+   * back the view alongside element edits. The entry carries no element delta (the drawing is
+   * unchanged); the consumer applies `viewport.before`/`after` on undo/redo. Fork-only (DCN):
+   * upstream keeps navigation out of history — see the DCN vendoring notes.
+   */
+  recordViewportChange(before: Viewport, after: Viewport) {
+    // No `batching` guard here: viewport gestures are independent of element batches, and the
+    // debounced commit could otherwise land mid element-batch and be silently dropped.
+    if (before.zoom === after.zoom && before.x === after.x && before.y === after.y) return;
+    this.pushHistory({
+      before: [],
+      after: [],
+      description: 'Viewport change',
+      timestamp: Date.now(),
+      viewport: { before: { ...before }, after: { ...after } },
+    });
+  }
+
   startBatch(description: string, beforeSnapshot: WhiteboardElement[]): BatchHandle {
     if (this.batchDepth === 0) {
       this.batchBeforeSnapshot = this.cloneElements(beforeSnapshot);
@@ -121,11 +149,28 @@ export class HistoryService {
   }
 
   undo(): WhiteboardElement[] | null {
-    return this.performUndo();
+    const entry = this.performUndo();
+    return entry ? this.cloneElements(entry.before) : null;
   }
 
   redo(): WhiteboardElement[] | null {
-    return this.performRedo();
+    const entry = this.performRedo();
+    return entry ? this.cloneElements(entry.after) : null;
+  }
+
+  /**
+   * Undo, returning the full step: the element snapshot to apply AND (for a viewport entry) the
+   * viewport to restore. DCN uses this to make undo viewport-aware; element entries carry no
+   * `viewport` and behave exactly as `undo()`. Fork-only (DCN).
+   */
+  undoEntry(): { elements: WhiteboardElement[]; viewport?: { before: Viewport; after: Viewport } } | null {
+    const entry = this.performUndo();
+    return entry ? { elements: this.cloneElements(entry.before), viewport: entry.viewport } : null;
+  }
+
+  redoEntry(): { elements: WhiteboardElement[]; viewport?: { before: Viewport; after: Viewport } } | null {
+    const entry = this.performRedo();
+    return entry ? { elements: this.cloneElements(entry.after), viewport: entry.viewport } : null;
   }
 
   clearHistory(): void {
@@ -134,22 +179,22 @@ export class HistoryService {
     this.updateSignals();
   }
 
-  private performUndo(): WhiteboardElement[] | null {
+  private performUndo(): HistoryEntry | null {
     if (this.undoStack.length === 0) return null;
     const entry = this.undoStack.pop();
     if (!entry) return null;
     this.redoStack.push(entry);
     this.updateSignals();
-    return this.cloneElements(entry.before);
+    return entry;
   }
 
-  private performRedo(): WhiteboardElement[] | null {
+  private performRedo(): HistoryEntry | null {
     if (this.redoStack.length === 0) return null;
     const entry = this.redoStack.pop();
     if (!entry) return null;
     this.undoStack.push(entry);
     this.updateSignals();
-    return this.cloneElements(entry.after);
+    return entry;
   }
 
   private pushHistory(entry: HistoryEntry) {

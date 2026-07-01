@@ -6,6 +6,7 @@ import { LayerManagementService } from '../elements/layer-management.service';
 import { SelectionService } from '../elements/selection.service';
 import { EventBusService } from '../event-bus/event-bus.service';
 import { HistoryService } from '../history/history.service';
+import { ViewportHistoryService } from '../history/viewport-history.service';
 import { ClipboardService, IOService } from '../input';
 import { ToolsService } from '../tools/tools.service';
 import { PanService } from '../viewport/pan.service';
@@ -35,6 +36,7 @@ describe('WhiteboardMultiInstanceService', () => {
         SelectionService,
         ToolsService,
         HistoryService,
+        ViewportHistoryService,
         ZoomService,
         ClipboardService,
       ],

@@ -27,7 +27,7 @@ import {
   SelectionService,
 } from './core/elements';
 import { EventBusService } from './core/event-bus/event-bus.service';
-import { HistoryService } from './core/history';
+import { HistoryService, ViewportHistoryService } from './core/history';
 import { ClipboardService, DragDropService, IOService, KeyboardShortcutService } from './core/input';
 import { SvgService } from './core/svg/svg.service';
 import { ToolsService } from './core/tools';
@@ -82,6 +82,7 @@ import { PanService, WheelHandlerService, ZoomService } from './core/viewport';
     KeyboardShortcutService,
     LayerManagementService,
     HistoryService,
+    ViewportHistoryService,
     ContextMenuService,
     DragDropService,
     WheelHandlerService,

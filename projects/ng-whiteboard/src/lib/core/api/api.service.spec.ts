@@ -7,6 +7,7 @@ import { LayerManagementService } from '../elements/layer-management.service';
 import { SelectionService } from '../elements/selection.service';
 import { EventBusService } from '../event-bus/event-bus.service';
 import { HistoryService } from '../history/history.service';
+import { ViewportHistoryService } from '../history/viewport-history.service';
 import { IOService } from '../input';
 import { ClipboardService } from '../input/clipboard.service';
 import { KeyboardShortcutService } from '../input/keyboard-shortcut.service';
@@ -130,6 +131,7 @@ describe('ApiService', () => {
         { provide: ToolsService, useValue: mockToolsService },
         { provide: IOService, useValue: mockIOService },
         { provide: HistoryService, useValue: mockHistoryService },
+        { provide: ViewportHistoryService, useValue: createMockService(ViewportHistoryService) },
         { provide: ZoomService, useValue: mockZoomService },
         { provide: PanService, useValue: mockPanService },
         { provide: LayerManagementService, useValue: mockLayerService },
@@ -730,9 +732,9 @@ describe('ApiService', () => {
 
   describe('Undo/Redo Operations', () => {
     it('should undo when history available', () => {
-      mockHistoryService.undo.mockReturnValue([mockElement]);
+      mockHistoryService.undoEntry.mockReturnValue({ elements: [mockElement] });
       const result = service.undo();
-      expect(mockHistoryService.undo).toHaveBeenCalled();
+      expect(mockHistoryService.undoEntry).toHaveBeenCalled();
       expect(mockElementsService.setElements).toHaveBeenCalledWith([mockElement]);
       expect(mockSelectionService.clearSelection).toHaveBeenCalled();
       expect(mockEventBusService.emit).toHaveBeenCalledWith(WhiteboardEvent.Undo, undefined);
@@ -740,16 +742,16 @@ describe('ApiService', () => {
     });
 
     it('should return false when undo not available', () => {
-      mockHistoryService.undo.mockReturnValue(null);
+      mockHistoryService.undoEntry.mockReturnValue(null);
       const result = service.undo();
-      expect(mockHistoryService.undo).toHaveBeenCalled();
+      expect(mockHistoryService.undoEntry).toHaveBeenCalled();
       expect(result).toBe(false);
     });
 
     it('should redo when history available', () => {
-      mockHistoryService.redo.mockReturnValue([mockElement]);
+      mockHistoryService.redoEntry.mockReturnValue({ elements: [mockElement] });
       const result = service.redo();
-      expect(mockHistoryService.redo).toHaveBeenCalled();
+      expect(mockHistoryService.redoEntry).toHaveBeenCalled();
       expect(mockElementsService.setElements).toHaveBeenCalledWith([mockElement]);
       expect(mockSelectionService.clearSelection).toHaveBeenCalled();
       expect(mockEventBusService.emit).toHaveBeenCalledWith(WhiteboardEvent.Redo, undefined);
@@ -757,10 +759,24 @@ describe('ApiService', () => {
     });
 
     it('should return false when redo not available', () => {
-      mockHistoryService.redo.mockReturnValue(null);
+      mockHistoryService.redoEntry.mockReturnValue(null);
       const result = service.redo();
-      expect(mockHistoryService.redo).toHaveBeenCalled();
+      expect(mockHistoryService.redoEntry).toHaveBeenCalled();
       expect(result).toBe(false);
+    });
+
+    it('should apply the viewport (not elements) when undoing a viewport entry', () => {
+      const mockViewportHistory = TestBed.inject(ViewportHistoryService) as unknown as {
+        applyViewport: jest.Mock;
+      };
+      mockHistoryService.undoEntry.mockReturnValue({
+        elements: [],
+        viewport: { before: { zoom: 1, x: 0, y: 0 }, after: { zoom: 2, x: 5, y: 6 } },
+      });
+      const result = service.undo();
+      expect(mockViewportHistory.applyViewport).toHaveBeenCalledWith({ zoom: 1, x: 0, y: 0 });
+      expect(mockElementsService.setElements).not.toHaveBeenCalled();
+      expect(result).toBe(true);
     });
 
     it('should get can undo signal', () => {

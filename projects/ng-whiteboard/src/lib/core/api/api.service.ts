@@ -8,6 +8,7 @@ import { PanService } from '../viewport/pan.service';
 import { SelectionService } from '../elements/selection.service';
 import { ToolsService } from '../tools/tools.service';
 import { BatchHandle, HistoryService } from '../history/history.service';
+import { ViewportHistoryService } from '../history/viewport-history.service';
 import { ZoomService } from '../viewport/zoom.service';
 import {
   AddImage,
@@ -32,6 +33,7 @@ export class ApiService {
   private toolsService = inject(ToolsService);
   private ioService = inject(IOService);
   private historyService = inject(HistoryService);
+  private viewportHistory = inject(ViewportHistoryService);
   private zoomService = inject(ZoomService);
   private panService = inject(PanService);
   private layerService = inject(LayerManagementService);
@@ -416,25 +418,29 @@ export class ApiService {
   }
 
   undo(): boolean {
-    const elements = this.historyService.undo();
-    if (elements) {
-      this.elementsService.setElements(elements);
+    const step = this.historyService.undoEntry();
+    if (!step) return false;
+    if (step.viewport) {
+      this.viewportHistory.applyViewport(step.viewport.before);
+    } else {
+      this.elementsService.setElements(step.elements);
       this.selectionService.clearSelection();
-      this.eventBusService.emit(WhiteboardEvent.Undo, undefined);
-      return true;
     }
-    return false;
+    this.eventBusService.emit(WhiteboardEvent.Undo, undefined);
+    return true;
   }
 
   redo(): boolean {
-    const elements = this.historyService.redo();
-    if (elements) {
-      this.elementsService.setElements(elements);
+    const step = this.historyService.redoEntry();
+    if (!step) return false;
+    if (step.viewport) {
+      this.viewportHistory.applyViewport(step.viewport.after);
+    } else {
+      this.elementsService.setElements(step.elements);
       this.selectionService.clearSelection();
-      this.eventBusService.emit(WhiteboardEvent.Redo, undefined);
-      return true;
     }
-    return false;
+    this.eventBusService.emit(WhiteboardEvent.Redo, undefined);
+    return true;
   }
 
   getCanUndoSignal(): Signal<boolean> {
@@ -447,6 +453,8 @@ export class ApiService {
 
   clearHistory(): void {
     this.historyService.clearHistory();
+    // Re-sync the viewport baseline so a post-baseline gesture isn't diffed against a stale view.
+    this.viewportHistory.reset();
   }
 
   recordElementCreation(before: WhiteboardElement[], after: WhiteboardElement[]): void {
