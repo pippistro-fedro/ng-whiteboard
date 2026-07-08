@@ -79,6 +79,15 @@ export interface WhiteboardConfig {
    * each element's own default. See {@link SelectAfterDrawConfig}.
    */
   selectAfterDraw?: SelectAfterDrawConfig;
+  /**
+   * When true, resizing the container does NOT re-fit/re-centre the board (the default fullScreen
+   * behaviour resets canvas size + pan). Instead the current zoom/pan is kept: the SVG (100% of the
+   * container) simply rescales the existing viewBox to the new size, so the on-screen view (crop)
+   * is preserved across a resize. Also keeps canvas dimensions stable, which matters when pan/zoom
+   * are recorded in history (viewport-in-undo) — otherwise entries taken at one size become
+   * incoherent after a resize. Default false (upstream re-fit behaviour).
+   */
+  preserveViewportOnResize?: boolean;
 }
 
 export interface EditorConfig {

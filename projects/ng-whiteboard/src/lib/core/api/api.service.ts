@@ -503,6 +503,21 @@ export class ApiService {
     this.configService.updateConfig(config);
   }
 
+  /**
+   * Set the viewport (zoom + pan) WITHOUT recording an undo entry, and re-baseline the
+   * viewport-history tracker so a later user gesture diffs against this view (fork-only,
+   * viewport-in-undo). For PROGRAMMATIC layout fits — fit-on-open, fit-on-resize — that must
+   * not pollute the undo stack, unlike deliberate user pan/zoom (which go through
+   * `updateConfig` and ARE recorded). Delegates to the same echo-guarded apply used by
+   * undo/redo.
+   */
+  setViewportSilently(zoom: number, x: number, y: number): void {
+    // emit=true: fire ConfigChange (so the OnPush canvas re-renders on resize and any live
+    // broadcast fires, as the old updateConfig path did) — the recording is still suppressed by
+    // the tracker's `applying` guard, so no undo entry is created.
+    this.viewportHistory.applyViewport({ zoom, x, y }, true);
+  }
+
   updateConfigValue<K extends keyof WhiteboardConfig>(key: K, value: WhiteboardConfig[K]): void {
     this.configService.updateConfigValue(key, value);
   }

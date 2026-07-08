@@ -755,6 +755,16 @@ export class NgWhiteboardService {
   }
 
   /**
+   * Set the viewport (zoom + pan) WITHOUT recording an undo entry (fork-only, viewport-in-undo).
+   * Use for programmatic layout fits (fit-on-open, fit-on-resize) that shouldn't be undoable;
+   * deliberate user pan/zoom still go through `updateConfig` and ARE recorded.
+   */
+  public setViewportSilently(zoom: number, x: number, y: number): void {
+    const instance = this.getApi();
+    instance.setViewportSilently(zoom, x, y);
+  }
+
+  /**
    * Add a new layer.
    */
   public addLayer(name?: string): void {

@@ -13,9 +13,16 @@ export class ResizeHandlerDirective implements OnInit, OnDestroy {
   ngOnInit() {
     this.resizeObserver = new ResizeObserver(([entry]) => {
       if (entry.target === this.elementRef.nativeElement) {
-        const { fullScreen, center } = this.apiService.getConfig();
+        const { fullScreen, center, preserveViewportOnResize } = this.apiService.getConfig();
 
         setTimeout(() => {
+          if (preserveViewportOnResize) {
+            // Keep canvas size + zoom/pan as-is: the SVG (100% of the container) rescales the
+            // existing viewBox to the new size, so the current view (crop) is preserved and any
+            // recorded viewport-undo entries stay coherent. Just re-render for the new size.
+            this._cd.detectChanges();
+            return;
+          }
           if (fullScreen) {
             this.apiService.fullScreen();
           }

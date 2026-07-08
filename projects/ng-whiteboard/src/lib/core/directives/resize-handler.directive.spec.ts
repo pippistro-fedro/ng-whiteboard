@@ -91,6 +91,25 @@ describe('ResizeHandlerDirective', () => {
     expect(mockChangeDetectorRef.detectChanges).toHaveBeenCalled();
   });
 
+  it('should NOT re-fit when preserveViewportOnResize is true (only re-render)', () => {
+    // Arrange: fullScreen would normally re-fit, but the flag must preserve the current viewport.
+    mockApiService.getConfig.mockReturnValue({
+      fullScreen: true,
+      center: true,
+      preserveViewportOnResize: true,
+    } as WhiteboardConfig);
+
+    directive.ngOnInit();
+    // Act
+    resizeCallback([{ target: mockElementRef.nativeElement } as ResizeObserverEntry]);
+    jest.runAllTimers();
+
+    // Assert: neither canvas method ran (canvas + zoom/pan preserved), but the view re-rendered.
+    expect(mockApiService.fullScreen).not.toHaveBeenCalled();
+    expect(mockApiService.centerCanvas).not.toHaveBeenCalled();
+    expect(mockChangeDetectorRef.detectChanges).toHaveBeenCalled();
+  });
+
   it('should disconnect ResizeObserver on destroy', () => {
     // Arrange
     const disconnectMock = jest.fn();
